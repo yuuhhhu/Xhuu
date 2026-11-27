@@ -12,16 +12,22 @@ jobs:
       - uses: actions/checkout@v4
       - name: Unzip project
         run: |
-          if [ -f MahmoudVpnPro.zip ]; then
-            unzip -q -o MahmoudVpnPro.zip
-            cp -a MahmoudVpnPro/. .
-            rm -rf MahmoudVpnPro MahmoudVpnPro.zip
+          Z=$(find . -maxdepth 1 -iname "*.zip" | head -n 1)
+          echo "zip found: $Z"
+          if [ -n "$Z" ]; then
+            rm -rf /tmp/x && mkdir /tmp/x
+            unzip -q -o "$Z" -d /tmp/x
+            S=$(find /tmp/x -name settings.gradle.kts | head -n 1)
+            D=$(dirname "$S")
+            cp -a "$D"/. .
+            rm -f "$Z"
             git config user.name "github-actions"
             git config user.email "github-actions@users.noreply.github.com"
             git add -A
-            git commit -m "Extract project"
+            git commit -m "Extract project" || true
             git push
           fi
+          ls -la
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
