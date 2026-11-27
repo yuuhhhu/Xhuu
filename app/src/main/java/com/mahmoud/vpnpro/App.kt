@@ -1,3 +1,4 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
 package com.mahmoud.vpnpro
 
 import android.app.Activity
@@ -20,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -29,7 +31,8 @@ import androidx.compose.animation.core.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+private fun act(f: () -> Unit) = f
+
 @Composable
 fun App(dark: Boolean, setDark: (Boolean) -> Unit) {
     val ctx = LocalContext.current
@@ -39,7 +42,7 @@ fun App(dark: Boolean, setDark: (Boolean) -> Unit) {
     var screen by remember { mutableStateOf("home") }
     var servers by remember { mutableStateOf(emptyList<Server>()) }
     var configs by remember { mutableStateOf(Repository.sampleConfigs()) }
-    var selected by remember { mutableStateOf<Server?>(null) } // null = Auto
+    var selected by remember { mutableStateOf<Server?>(null) }
     var showServers by remember { mutableStateOf(false) }
     val status by VpnState.status.collectAsState()
     val err by VpnState.error.collectAsState()
@@ -62,7 +65,7 @@ fun App(dark: Boolean, setDark: (Boolean) -> Unit) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { importText(ctx.contentResolver.openInputStream(it)!!.bufferedReader().readText()) }
     }
-    fun clip() {
+    fun pasteClip() {
         val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         importText(cm.primaryClip?.getItemAt(0)?.text?.toString().orEmpty())
     }
@@ -75,17 +78,17 @@ fun App(dark: Boolean, setDark: (Boolean) -> Unit) {
                 Text("Enable Dark Theme", Modifier.weight(1f)); Switch(dark, setDark)
             }
             listOf<Pair<String, () -> Unit>>(
-                "Network Config" to { screen = "configs"; scope.launch { drawer.close() } },
-                "IP Hunt" to { soon("IP Hunt") },
-                "Tethering" to { ctx.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) },
-                "Online Update" to { scope.launch { servers = Repository.servers(ctx); drawer.close(); snack.showSnackbar("تم التحديث") } },
-                "Settings" to { soon("Settings") },
-                "Offline Update" to { picker.launch(arrayOf("*/*")) },
-                "Update from Clipboard" to { clip() },
-                "Clear Data" to { ctx.getSharedPreferences("cache", 0).edit().clear().apply(); soon("تم المسح") },
-                "Earn More Time" to { soon("Earn More Time") },
-                "Beginner Tutorial" to { soon("Tutorial") },
-                "Updates Notes" to { soon("Notes") },
+                "Network Config" to act { screen = "configs"; scope.launch { drawer.close() } },
+                "IP Hunt" to act { soon("IP Hunt") },
+                "Tethering" to act { ctx.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) },
+                "Online Update" to act { scope.launch { servers = Repository.servers(ctx); drawer.close(); snack.showSnackbar("تم التحديث") } },
+                "Settings" to act { soon("Settings") },
+                "Offline Update" to act { picker.launch(arrayOf("*/*")) },
+                "Update from Clipboard" to act { pasteClip() },
+                "Clear Data" to act { ctx.getSharedPreferences("cache", 0).edit().clear().apply(); soon("تم المسح") },
+                "Earn More Time" to act { soon("Earn More Time") },
+                "Beginner Tutorial" to act { soon("Tutorial") },
+                "Updates Notes" to act { soon("Notes") },
             ).forEach { (t, a) -> NavigationDrawerItem(label = { Text(t) }, selected = false, onClick = a) }
         }
     }) {
@@ -100,7 +103,7 @@ fun App(dark: Boolean, setDark: (Boolean) -> Unit) {
                     if (screen == "home") Home(status, selected, { showServers = true },
                         { if (status == Status.Disconnected) connect() },
                         { MahmoudVpnService.stop(ctx) }, ctx, { scope.launch { snack.showSnackbar("أضف وقتاً عبر الاشتراك من الـ backend") } })
-                    else ConfigsScreen(configs, { picker.launch(arrayOf("*/*")) }, ::clip)
+                    else ConfigsScreen(configs, { picker.launch(arrayOf("*/*")) }, { pasteClip() })
                 }
             }
         }
@@ -116,7 +119,7 @@ fun Home(status: Status, sel: Server?, openServers: () -> Unit, onStart: () -> U
     val since by VpnState.since.collectAsState()
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(1000) } }
-    fun fmt(ms: Long) = ms.coerceAtLeast(0) / 1000 .let { s -> "%02d:%02d:%02d".format(s / 3600, s % 3600 / 60, s % 60) }
+    fun fmt(ms: Long) = ms.coerceAtLeast(0).div(1000).let { s -> "%02d:%02d:%02d".format(s / 3600, s % 3600 / 60, s % 60) }
     val connected = status == Status.Connected
     Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.Default.SmartToy, null, tint = Cyan, modifier = Modifier.size(84.dp))
