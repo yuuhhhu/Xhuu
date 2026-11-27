@@ -3,8 +3,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-permissions:
-  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,10 +18,14 @@ jobs:
       - name: Build
         shell: bash
         run: |
+          set +e
           gradle assembleDebug --no-daemon --console=plain > build.log 2>&1
           code=$?
           if [ $code -ne 0 ]; then
-            grep -E -A4 "What went wrong|^e: |error:" build.log | head -25 | while IFS= read -r l; do echo "::error::$l"; done
+            echo "=========== ERRORS ==========="
+            grep -E -B1 -A6 "What went wrong|^e: |error:" build.log | head -40
+            echo "=========== LAST 30 LINES ==========="
+            tail -30 build.log
           fi
           exit $code
       - uses: actions/upload-artifact@v4
